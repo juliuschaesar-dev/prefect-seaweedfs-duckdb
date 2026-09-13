@@ -1,0 +1,8 @@
+prefect
+duckdb
+polars
+streamlit
+boto3
+python-dotenv
+httpx
+pytest

@@ -1,0 +1,66 @@
+services:
+  master:
+    image: chrislusf/seaweedfs
+    command: master -ip=master
+    ports:
+      - "9333:9333"
+
+  volume:
+    image: chrislusf/seaweedfs
+    command: volume -mserver=master:9333 -ip=volume -port=8080
+    depends_on:
+      - master
+    ports:
+      - "8080:8080"
+
+  filer:
+    image: chrislusf/seaweedfs
+    command: filer -master=master:9333 -ip=filer
+    depends_on:
+      - volume
+    ports:
+      - "8888:8888"
+
+  s3:
+    image: chrislusf/seaweedfs
+    command: s3 -filer=filer:8888 -port=8333
+    depends_on:
+      - filer
+    ports:
+      - "8333:8333"
+
+  bucket-init:
+    build: .
+    env_file: .env
+    environment:
+      S3_ENDPOINT: http://s3:8333
+    depends_on:
+      - s3
+    entrypoint: ["python", "-m", "scripts.init_bucket"]
+
+  prefect-server:
+    image: prefecthq/prefect:3-latest
+    command: prefect server start --host 0.0.0.0
+    ports:
+      - "4200:4200"
+    volumes:
+      - prefect-data:/root/.prefect
+
+  app:
+    build: .
+    env_file: .env
+    environment:
+      S3_ENDPOINT: http://s3:8333
+      PREFECT_API_URL: http://prefect-server:4200/api
+    depends_on:
+      s3:
+        condition: service_started
+      bucket-init:
+        condition: service_completed_successfully
+      prefect-server:
+        condition: service_started
+    ports:
+      - "8501:8501"
+
+volumes:
+  prefect-data:
