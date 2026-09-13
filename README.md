@@ -19,14 +19,6 @@ s3://weather-bucket/
 1. Copy `.env.example` to `.env` and fill in values (defaults work for the local SeaweedFS compose stack).
 2. `docker compose up -d --build` — brings up SeaweedFS (master, volume, filer, s3 gateway on `:8333`), the Prefect server/UI (`:4200`), builds the `app` image, creates the bucket (`bucket-init`, idempotent), then starts the Streamlit dashboard on `:8501`.
 
-## Running the backfill (historical load)
-
-```
-docker compose run --rm app python -m scripts.backfill --start-date 2021-01-01 --end-date 2025-12-31
-```
-
-Loops over `CITIES` × `[--start-date, --end-date]` (both required), pulling from the Open-Meteo Archive API and writing through `raw/` → `staging/` → `mart/`.
-
 ## Running the daily flow
 
 ```
@@ -34,6 +26,14 @@ docker compose run --rm app python -m pipeline.flows.weather_flow
 ```
 
 Runs the Prefect flow for yesterday's date (forecast API), with retries on the extract step. To schedule it, create a Prefect deployment from `weather_flow` and attach a daily schedule.
+
+## Running the backfill (historical load)
+
+```
+docker compose run --rm app python -m scripts.backfill --start-date 2024-01-01 --end-date 2024-01-31
+```
+
+Loops over `CITIES` × `[--start-date, --end-date]` (both required), pulling from the Open-Meteo Archive API and writing through `raw/` → `staging/` → `mart/`.
 
 ## Prefect UI
 
