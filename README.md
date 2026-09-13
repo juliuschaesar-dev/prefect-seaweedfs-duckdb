@@ -1,6 +1,6 @@
 # prefect-seaweedfs-duckdb
 
-End-to-end weather analytics pipeline: Open-Meteo → Prefect → SeaweedFS (S3-compatible) → DuckDB → Streamlit.
+End-to-end weather analytics pipeline built for portfolio purposes: it orchestrates daily and historical ingestion of weather data from the free [Open-Meteo](https://open-meteo.com/) API using **Prefect**, lands it through a **raw → staging → mart** layered structure on **SeaweedFS** (self-hosted, S3-compatible object storage), queries the final layer directly with **DuckDB**'s `httpfs` (no local copy of the data), and visualizes multi-city trends in a **Streamlit** dashboard.
 
 ## Architecture
 
