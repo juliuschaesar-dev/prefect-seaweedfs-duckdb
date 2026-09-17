@@ -1,9 +1,11 @@
-"""Open-Meteo API calls — one function reused by daily flow and backfill script."""
+"""Open-Meteo API calls — reused by the daily flow, backfill flow, and backfill script."""
 from __future__ import annotations
 
 from datetime import date
 
 import httpx
+
+from common.config import settings
 
 HOURLY_FIELDS = "temperature_2m,precipitation,windspeed_10m,cloudcover"
 
@@ -36,3 +38,16 @@ def fetch_weather(
     payload = response.json()
     payload["city"] = city
     return payload
+
+
+def extract_weather_for_city(city: str, target_date: date, base_url: str) -> dict:
+    """Look up `city`'s coordinates and fetch its weather for a single day."""
+    lat, lon = settings.city_coordinates(city)
+    return fetch_weather(
+        city=city,
+        lat=lat,
+        lon=lon,
+        start_date=target_date,
+        end_date=target_date,
+        base_url=base_url,
+    )

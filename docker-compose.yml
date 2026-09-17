@@ -45,6 +45,26 @@ services:
       - "4200:4200"
     volumes:
       - prefect-data:/root/.prefect
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:4200/api/health')"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  deployments:
+    build: .
+    env_file: .env
+    environment:
+      S3_ENDPOINT: http://s3:8333
+      PREFECT_API_URL: http://prefect-server:4200/api
+    depends_on:
+      s3:
+        condition: service_started
+      bucket-init:
+        condition: service_completed_successfully
+      prefect-server:
+        condition: service_healthy
+    entrypoint: ["python", "-m", "pipeline.serve"]
 
   app:
     build: .
@@ -58,7 +78,7 @@ services:
       bucket-init:
         condition: service_completed_successfully
       prefect-server:
-        condition: service_started
+        condition: service_healthy
     ports:
       - "8501:8501"
 

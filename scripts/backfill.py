@@ -6,36 +6,17 @@ only the extract step differs (Archive API + custom date range, instead of Forec
 from __future__ import annotations
 
 import argparse
-from datetime import date, timedelta
+import functools
+from datetime import date
 
 from common.config import settings
-from pipeline.pipeline import PipelineSteps, run_pipeline_for_date
-from pipeline.tasks.extract import fetch_weather
+from pipeline.pipeline import PipelineSteps, daterange, run_pipeline_for_date
+from pipeline.tasks.extract import extract_weather_for_city
 from pipeline.tasks.load import read_raw, read_staging, write_mart, write_raw, write_staging
 from pipeline.tasks.transform import finalize_weather, flatten_weather
 
-
-def daterange(start: date, end: date):
-    current = start
-    while current <= end:
-        yield current
-        current += timedelta(days=1)
-
-
-def _extract_from_archive(city: str, target_date: date) -> dict:
-    lat, lon = settings.city_coordinates(city)
-    return fetch_weather(
-        city=city,
-        lat=lat,
-        lon=lon,
-        start_date=target_date,
-        end_date=target_date,
-        base_url=settings.openmeteo_archive_url,
-    )
-
-
 STEPS = PipelineSteps(
-    extract=_extract_from_archive,
+    extract=functools.partial(extract_weather_for_city, base_url=settings.openmeteo_archive_url),
     load_raw=write_raw,
     read_raw=read_raw,
     clean=flatten_weather,

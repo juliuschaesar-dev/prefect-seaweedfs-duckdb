@@ -6,10 +6,17 @@ and the backfill script (steps called directly, no per-city/day Prefect overhead
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, timedelta
 from typing import Callable
 
 import polars as pl
+
+
+def daterange(start: date, end: date):
+    current = start
+    while current <= end:
+        yield current
+        current += timedelta(days=1)
 
 
 @dataclass(frozen=True)
