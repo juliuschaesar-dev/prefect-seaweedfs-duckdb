@@ -157,7 +157,7 @@ else:
     )
 
     precip_base = alt.Chart(precip_nonzero_df).encode(
-        x=alt.X("city:N", sort=city_order, title="City"),
+        x=alt.X("city:N", sort=city_order, title="City", axis=alt.Axis(labelAngle=-45)),
         y=alt.Y("total_precipitation_mm:Q", title="Total Precipitation (mm)"),
     )
     precip_bars = precip_base.mark_bar().encode(
@@ -168,7 +168,7 @@ else:
             legend=alt.Legend(orient="top-right"),
         )
     )
-    precip_labels = precip_base.mark_text(dy=-8, color="white").encode(
+    precip_labels = precip_base.mark_text(dy=-8, color="#9aa0a6").encode(
         text=alt.Text("total_precipitation_mm:Q", format=".1f")
     )
 
@@ -225,7 +225,7 @@ def bar_cell(value: float, col: str, color: str) -> str:
         '<div style="flex:1;height:6px;border-radius:3px;background:rgba(255,255,255,0.08);overflow:hidden;">'
         f'<div style="width:{pct:.0f}%;height:100%;background:{color};border-radius:3px;"></div>'
         "</div>"
-        f'<span style="min-width:44px;text-align:right;font-variant-numeric:tabular-nums;">{value:.1f}</span>'
+        f'<span style="min-width:44px;text-align:right;font-variant-numeric:tabular-nums;color:#e5e5e5;">{value:.1f}</span>'
         "</div>"
     )
 
@@ -243,14 +243,14 @@ for rank, row in enumerate(summary_df.iter_rows(named=True), start=1):
     row_html_parts.append(
         '<tr class="summary-row" style="border-top:1px solid rgba(255,255,255,0.06);">'
         f'<td style="padding:10px 14px;color:#8b93a1;">{rank}</td>'
-        f'<td style="padding:10px 14px;font-weight:700;white-space:nowrap;">{row["City"]}</td>'
+        f'<td style="padding:10px 14px;font-weight:700;white-space:nowrap;color:#e5e5e5;">{row["City"]}</td>'
         f"{metric_cells}"
         "</tr>"
     )
 
 table_html = (
     "<style>.summary-row:hover{background:rgba(255,255,255,0.05);}</style>"
-    '<div style="background:#1c1f27;border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:16px 8px;">'
+    '<div style="background:#1c1f27;color:#e5e5e5;border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:16px 8px;">'
     '<table style="width:100%;border-collapse:collapse;font-size:0.9em;">'
     "<thead><tr>"
     '<th style="padding:0 14px 8px;width:32px;"></th>'
