@@ -74,3 +74,11 @@ No need to bring the rest of the stack down — SeaweedFS, Prefect server, and t
    ```
 
 Unit tests cover `extract`, `transform`, and `storage`, with the API/S3 calls mocked.
+
+## Stopping
+
+```
+docker compose down
+```
+
+Use `docker compose down -v` to also remove everything, including SeaweedFS and Prefect server data.
