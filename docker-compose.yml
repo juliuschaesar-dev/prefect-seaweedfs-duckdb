@@ -2,12 +2,16 @@ services:
   master:
     image: chrislusf/seaweedfs
     command: master -ip=master
+    volumes:
+      - seaweedfs-master:/data
     ports:
       - "9333:9333"
 
   volume:
     image: chrislusf/seaweedfs
     command: volume -mserver=master:9333 -ip=volume -port=8080
+    volumes:
+      - seaweedfs-volume:/data
     depends_on:
       - master
     ports:
@@ -16,6 +20,8 @@ services:
   filer:
     image: chrislusf/seaweedfs
     command: filer -master=master:9333 -ip=filer
+    volumes:
+      - seaweedfs-filer:/data
     depends_on:
       - volume
     ports:
@@ -84,3 +90,6 @@ services:
 
 volumes:
   prefect-data:
+  seaweedfs-master:
+  seaweedfs-volume:
+  seaweedfs-filer:
