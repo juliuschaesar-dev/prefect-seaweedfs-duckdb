@@ -13,7 +13,23 @@ st.title("Weather Analytics Dashboard")
 
 MART_GLOB = f"s3://{settings.s3_bucket}/mart/weather/dt=*/data.parquet"
 
+MUTED_TEXT = "#8b93a1"
+LIGHT_TEXT = "#e5e5e5"
+CARD_BG = "#1c1f27"
+CELL_BORDER = "#11141c"
+
 con = get_connection()
+
+
+def query_day(select: str, group_by: str = "", order_by: str = "") -> pl.DataFrame:
+    """Run a SELECT against the mart, scoped to `selected_day` via a WHERE clause."""
+    sql = f"SELECT {select} FROM read_parquet('{MART_GLOB}', hive_partitioning=1) WHERE date_trunc('day', timestamp) = ?"
+    if group_by:
+        sql += f" GROUP BY {group_by}"
+    if order_by:
+        sql += f" ORDER BY {order_by}"
+    return con.execute(sql, [selected_day]).pl()
+
 
 available_days = sorted(
     con.execute(
@@ -36,29 +52,12 @@ st.caption(
     "rows sorted by highest daily average first."
 )
 
-heat_df = con.execute(
-    f"""
-    SELECT
-        city,
-        CAST(FLOOR(extract(hour from timestamp) / 3.0) * 3 AS INTEGER) AS hour_bucket,
-        avg(temperature) AS avg_temp
-    FROM read_parquet('{MART_GLOB}', hive_partitioning=1)
-    WHERE date_trunc('day', timestamp) = ?
-    GROUP BY city, hour_bucket
-    ORDER BY city, hour_bucket
-    """,
-    [selected_day],
-).pl()
-city_avg_df = con.execute(
-    f"""
-    SELECT city, avg(temperature) AS avg_temp
-    FROM read_parquet('{MART_GLOB}', hive_partitioning=1)
-    WHERE date_trunc('day', timestamp) = ?
-    GROUP BY city
-    ORDER BY avg_temp DESC
-    """,
-    [selected_day],
-).pl()
+heat_df = query_day(
+    select="city, CAST(FLOOR(extract(hour from timestamp) / 3.0) * 3 AS INTEGER) AS hour_bucket, avg(temperature) AS avg_temp",
+    group_by="city, hour_bucket",
+    order_by="city, hour_bucket",
+)
+city_avg_df = query_day(select="city, avg(temperature) AS avg_temp", group_by="city", order_by="avg_temp DESC")
 
 city_order = city_avg_df["city"].to_list()
 coldest_city = city_order[-1]
@@ -79,13 +78,16 @@ ROW_HEIGHT = 26
 n_cities = len(city_order)
 x_domain = bucket_labels + ["Avg"]
 
-heatmap = alt.Chart(heat_df).mark_rect(stroke="#11141c", strokeWidth=1).encode(
+simple_x = alt.X("hour_label:N", sort=x_domain)
+simple_y = alt.Y("city:N", sort=city_order)
+
+heatmap = alt.Chart(heat_df).mark_rect(stroke=CELL_BORDER, strokeWidth=1).encode(
     x=alt.X("hour_label:N", sort=x_domain, title=None, axis=alt.Axis(labelAngle=0)),
     y=alt.Y(
         "city:N",
         sort=city_order,
         title=None,
-        axis=alt.Axis(labelOverlap=False, domain=True, domainColor="#8b93a1", ticks=True, tickSize=6, tickColor="#8b93a1"),
+        axis=alt.Axis(labelOverlap=False, domain=True, domainColor=MUTED_TEXT, ticks=True, tickSize=6, tickColor=MUTED_TEXT),
     ),
     color=alt.Color(
         "avg_temp:Q",
@@ -102,26 +104,20 @@ heatmap = alt.Chart(heat_df).mark_rect(stroke="#11141c", strokeWidth=1).encode(
 
 peak_highlight = alt.Chart(
     pl.DataFrame({"city": city_order, "hour_label": [peak_hour_label] * n_cities})
-).mark_rect(fill=None, stroke="black", strokeDash=[4, 2], strokeWidth=1.5).encode(
-    x=alt.X("hour_label:N", sort=x_domain),
-    y=alt.Y("city:N", sort=city_order),
-)
+).mark_rect(fill=None, stroke="black", strokeDash=[4, 2], strokeWidth=1.5).encode(x=simple_x, y=simple_y)
 cold_highlight = alt.Chart(
     pl.DataFrame({"city": [coldest_city] * len(bucket_labels), "hour_label": bucket_labels})
-).mark_rect(fill=None, stroke="black", strokeDash=[4, 2], strokeWidth=1.5).encode(
-    x=alt.X("hour_label:N", sort=x_domain),
-    y=alt.Y("city:N", sort=city_order),
-)
+).mark_rect(fill=None, stroke="black", strokeDash=[4, 2], strokeWidth=1.5).encode(x=simple_x, y=simple_y)
 
 avg_cells_df = city_avg_df.with_columns(pl.Series("hour_label", ["Avg"] * n_cities))
-avg_rect = alt.Chart(avg_cells_df).mark_rect(stroke="#11141c", strokeWidth=1).encode(
-    x=alt.X("hour_label:N", sort=x_domain),
-    y=alt.Y("city:N", sort=city_order),
+avg_rect = alt.Chart(avg_cells_df).mark_rect(stroke=CELL_BORDER, strokeWidth=1).encode(
+    x=simple_x,
+    y=simple_y,
     color=alt.Color("avg_temp:Q", scale=TEMP_COLOR_SCALE, legend=None),
 )
 avg_text = alt.Chart(avg_cells_df).mark_text(fontWeight="bold", color="black").encode(
-    x=alt.X("hour_label:N", sort=x_domain),
-    y=alt.Y("city:N", sort=city_order),
+    x=simple_x,
+    y=simple_y,
     text=alt.Text("avg_temp:Q", format=".1f"),
 )
 
@@ -131,16 +127,11 @@ heatmap_chart = (heatmap + peak_highlight + cold_highlight + avg_rect + avg_text
 st.altair_chart(heatmap_chart, use_container_width=True)
 
 st.subheader("Precipitation Comparison by City")
-precip_day_df = con.execute(
-    f"""
-    SELECT city, sum(precipitation) AS total_precipitation_mm
-    FROM read_parquet('{MART_GLOB}', hive_partitioning=1)
-    WHERE date_trunc('day', timestamp) = ?
-    GROUP BY city
-    ORDER BY total_precipitation_mm DESC
-    """,
-    [selected_day],
-).pl()
+precip_day_df = query_day(
+    select="city, sum(precipitation) AS total_precipitation_mm",
+    group_by="city",
+    order_by="total_precipitation_mm DESC",
+)
 
 st.caption("Total precipitation (mm), sorted highest to lowest — cities with no recorded rainfall are hidden from the chart.")
 
@@ -150,14 +141,16 @@ precip_nonzero_df = precip_day_df.filter(precip_day_df["total_precipitation_mm"]
 if precip_nonzero_df.height == 0:
     st.info("No precipitation recorded for any city on this day.")
 else:
-    city_order = precip_nonzero_df["city"].to_list()
-    top_city = city_order[0]
+    precip_city_order = precip_nonzero_df["city"].to_list()
+    top_city = precip_city_order[0]
     precip_nonzero_df = precip_nonzero_df.with_columns(
-        pl.Series("group", ["Highest precipitation" if c == top_city else "Other cities" for c in city_order])
+        pl.Series(
+            "group", ["Highest precipitation" if c == top_city else "Other cities" for c in precip_city_order]
+        )
     )
 
     precip_base = alt.Chart(precip_nonzero_df).encode(
-        x=alt.X("city:N", sort=city_order, title="City", axis=alt.Axis(labelAngle=-45)),
+        x=alt.X("city:N", sort=precip_city_order, title="City", axis=alt.Axis(labelAngle=-45)),
         y=alt.Y("total_precipitation_mm:Q", title="Total Precipitation (mm)"),
     )
     precip_bars = precip_base.mark_bar().encode(
@@ -168,41 +161,39 @@ else:
             legend=alt.Legend(orient="top-right"),
         )
     )
-    precip_labels = precip_base.mark_text(dy=-8, color="#9aa0a6").encode(
+    precip_labels = precip_base.mark_text(dy=-8, color=MUTED_TEXT).encode(
         text=alt.Text("total_precipitation_mm:Q", format=".1f")
     )
 
     avg_rule = alt.Chart(pl.DataFrame({"avg_mm": [avg_precip]})).mark_rule(
-        strokeDash=[4, 4], color="#9aa0a6"
+        strokeDash=[4, 4], color=MUTED_TEXT
     ).encode(y="avg_mm:Q")
-    avg_text = alt.Chart(
-        pl.DataFrame({"city": [city_order[-1]], "avg_mm": [avg_precip], "label": [f"Average: {avg_precip:.1f} mm"]})
-    ).mark_text(align="right", dy=-6, color="#9aa0a6", fontSize=11).encode(
-        x=alt.X("city:N", sort=city_order),
+    precip_avg_text = alt.Chart(
+        pl.DataFrame(
+            {"city": [precip_city_order[-1]], "avg_mm": [avg_precip], "label": [f"Average: {avg_precip:.1f} mm"]}
+        )
+    ).mark_text(align="right", dy=-6, color=MUTED_TEXT, fontSize=11).encode(
+        x=alt.X("city:N", sort=precip_city_order),
         y="avg_mm:Q",
         text="label:N",
     )
 
-    precip_chart = (precip_bars + precip_labels + avg_rule + avg_text).properties(height=450)
+    precip_chart = (precip_bars + precip_labels + avg_rule + precip_avg_text).properties(height=450)
     st.altair_chart(precip_chart, use_container_width=True)
 
 st.subheader("Summary Stats")
-summary_df = con.execute(
-    f"""
-    SELECT
+summary_df = query_day(
+    select="""
         city AS "City",
         avg(temperature) AS "Avg Temperature (°C)",
         max(temperature) AS "Max Temperature (°C)",
         min(temperature) AS "Min Temperature (°C)",
         sum(precipitation) AS "Total Precipitation (mm)",
         avg(windspeed) AS "Avg Windspeed (km/h)"
-    FROM read_parquet('{MART_GLOB}', hive_partitioning=1)
-    WHERE date_trunc('day', timestamp) = ?
-    GROUP BY city
-    ORDER BY avg(temperature) DESC
     """,
-    [selected_day],
-).pl()
+    group_by="city",
+    order_by="avg(temperature) DESC",
+)
 
 st.caption(f"Averages and extremes for {selected_day.strftime('%Y-%m-%d')} — sorted by highest average temperature.")
 
@@ -225,13 +216,13 @@ def bar_cell(value: float, col: str, color: str) -> str:
         '<div style="flex:1;height:6px;border-radius:3px;background:rgba(255,255,255,0.08);overflow:hidden;">'
         f'<div style="width:{pct:.0f}%;height:100%;background:{color};border-radius:3px;"></div>'
         "</div>"
-        f'<span style="min-width:44px;text-align:right;font-variant-numeric:tabular-nums;color:#e5e5e5;">{value:.1f}</span>'
+        f'<span style="min-width:44px;text-align:right;font-variant-numeric:tabular-nums;color:{LIGHT_TEXT};">{value:.1f}</span>'
         "</div>"
     )
 
 
 header_cells = "".join(
-    f'<th style="text-align:left;padding:0 14px 8px;font-weight:500;color:#8b93a1;font-size:0.85em;white-space:nowrap;">{icon} {col}</th>'
+    f'<th style="text-align:left;padding:0 14px 8px;font-weight:500;color:{MUTED_TEXT};font-size:0.85em;white-space:nowrap;">{icon} {col}</th>'
     for col, icon, _ in BAR_METRICS
 )
 
@@ -242,19 +233,19 @@ for rank, row in enumerate(summary_df.iter_rows(named=True), start=1):
     )
     row_html_parts.append(
         '<tr class="summary-row" style="border-top:1px solid rgba(255,255,255,0.06);">'
-        f'<td style="padding:10px 14px;color:#8b93a1;">{rank}</td>'
-        f'<td style="padding:10px 14px;font-weight:700;white-space:nowrap;color:#e5e5e5;">{row["City"]}</td>'
+        f'<td style="padding:10px 14px;color:{MUTED_TEXT};">{rank}</td>'
+        f'<td style="padding:10px 14px;font-weight:700;white-space:nowrap;color:{LIGHT_TEXT};">{row["City"]}</td>'
         f"{metric_cells}"
         "</tr>"
     )
 
 table_html = (
     "<style>.summary-row:hover{background:rgba(255,255,255,0.05);}</style>"
-    '<div style="background:#1c1f27;color:#e5e5e5;border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:16px 8px;">'
+    f'<div style="background:{CARD_BG};color:{LIGHT_TEXT};border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:16px 8px;">'
     '<table style="width:100%;border-collapse:collapse;font-size:0.9em;">'
     "<thead><tr>"
     '<th style="padding:0 14px 8px;width:32px;"></th>'
-    '<th style="text-align:left;padding:0 14px 8px;font-weight:500;color:#8b93a1;font-size:0.85em;">City</th>'
+    f'<th style="text-align:left;padding:0 14px 8px;font-weight:500;color:{MUTED_TEXT};font-size:0.85em;">City</th>'
     f"{header_cells}"
     "</tr></thead>"
     f"<tbody>{''.join(row_html_parts)}</tbody>"
