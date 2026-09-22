@@ -43,7 +43,11 @@ Available at [http://localhost:4200](http://localhost:4200) — trigger and sche
 
 Already running at [http://localhost:8501](http://localhost:8501) once `docker compose up -d --build` finishes. Shows a temperature heatmap by city, precipitation comparison by city, and summary stats — all queried live from `mart/` via DuckDB's `httpfs`.
 
-Screenshots: see the [v1 release assets](https://github.com/juliuschaesar-dev/prefect-seaweedfs-duckdb/releases/tag/v1).
+![Temperature heatmap by city](docs/screenshots/black/Weather%20Analytics%20Black-1.png)
+
+![Precipitation comparison by city](docs/screenshots/black/Weather%20Analytics%20Black-2.png)
+
+![Summary stats table](docs/screenshots/black/Weather%20Analytics%20Black-3.png)
 
 After changing `dashboard/app.py`, rebuild and restart just that service:
 
