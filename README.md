@@ -43,6 +43,8 @@ Available at [http://localhost:4200](http://localhost:4200) — trigger and sche
 
 Already running at [http://localhost:8501](http://localhost:8501) once `docker compose up -d --build` finishes. Shows a temperature heatmap by city, precipitation comparison by city, and summary stats — all queried live from `mart/` via DuckDB's `httpfs`.
 
+Dashboard screenshot for reference:
+
 ![Temperature heatmap by city](docs/screenshots/black/Weather%20Analytics%20Black-1.png)
 
 ![Precipitation comparison by city](docs/screenshots/black/Weather%20Analytics%20Black-2.png)
