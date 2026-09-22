@@ -14,6 +14,20 @@ s3://weather-bucket/
 └── mart/weather/dt=YYYY-MM-DD/data.parquet
 ```
 
+## Repo structure
+
+```
+├── common/            # shared config, DuckDB connection, S3/SeaweedFS storage helpers
+├── pipeline/
+│   ├── tasks/         # extract (Open-Meteo), transform, load — no Prefect dependency
+│   └── flows/         # Prefect flows (weather_flow, backfill_flow) + shared task wrappers
+├── dashboard/         # Streamlit app querying mart/ via DuckDB httpfs
+├── scripts/           # standalone CLI scripts (backfill, bucket init)
+├── docs/
+│   └── screenshots/   # dashboard screenshots (black/, white/ themes)
+└── tests/             # pytest unit tests for extract/transform/storage, API/S3 mocked
+```
+
 ## Setup
 
 1. Copy `.env.example` to `.env` and fill in values (defaults work for the local SeaweedFS compose stack).
